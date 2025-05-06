@@ -39,8 +39,9 @@
     });
 
     document.getElementById("btnSaveToDrive").addEventListener("click", () => {
-      // Показуємо індикатор
-      statusDiv.innerHTML = '<div class="spinner"></div> Завантаження на Google Drive… будь ласка, зачекайте.';
+      // Показуємо індикатор завантаження
+      //statusDiv.innerHTML = '<div class="spinner"></div> Завантаження на Google Drive… будь ласка, зачекайте.';
+      statusDiv.innerHTML = '<div class="loader"> Завантаження на Google Drive… будь ласка, зачекайте.</div>';
 
       chrome.runtime.sendMessage({ action: "uploadToDrive" }, (response) => {
         if (!response) return;

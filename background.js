@@ -1,19 +1,36 @@
 // background.js
 
+// Запам’ятовує час старту розширення
+const extensionLoadedAt = Date.now();
+
 let pendingDownload = null;
 let skipNextDownload = false;  // прапорець
 
 chrome.downloads.onCreated.addListener((downloadItem) => {
   // Якщо ми самі ініціювали завантаження (skipNextDownload == true), не скасовуємо.
+
+  // Ігноруємо старі завантаження (до старту розширення)
+  const itemStart = new Date(downloadItem.startTime).getTime();
+  if (itemStart < extensionLoadedAt) {
+    // console.log('⏩ Пропускаємо старе завантаження:', downloadItem.startTime);
+    return;
+  }
+
+  // Ігноруємо завантаження, створені іншими розширеннями
+  if (downloadItem.byExtensionId) {
+    // console.log('⏩ Пропускаємо завантаження від розширення:', downloadItem.byExtensionId);
+    return;
+  }
+
   if (skipNextDownload) {
     skipNextDownload = false; // скидаємо прапорець після першої обробки
-    console.log("Завантаження створене власним розширенням => не скасовуємо");
+    // console.log("Завантаження створене власним розширенням => не скасовуємо");
     return;
   }
 
   // Інакше це завантаження ззовні – скасовуємо та відкриваємо форму вибору.
   chrome.downloads.cancel(downloadItem.id, () => {
-    console.log("Автоматичне завантаження скасовано.");
+    // console.log("Автоматичне завантаження скасовано.");
   });
 
   // Зберігаємо дані про файл, щоби згодом дати змогу юзеру вирішити,
@@ -49,7 +66,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.error("Помилка при download():", chrome.runtime.lastError);
         sendResponse({ status: "error", message: chrome.runtime.lastError.message });
       } else {
-        console.log("Почалось завантаження з ID:", downloadId);
+        // console.log("Почалось завантаження з ID:", downloadId);
         sendResponse({ status: "ok", downloadId });
       }
     });
@@ -71,7 +88,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     
     const fileName = `Новий файл (${dateStr}).bin`;
     // const fileName = pendingDownload.filename || "file.bin";
-    console.log(pendingDownload.filename);
+    // console.log(pendingDownload.filename);
 
     fetch(fileUrl)
       .then(response => response.blob())

@@ -1,13 +1,12 @@
 {
   "name": "Download Manager",
   "description": "Перехоплює завантаження та відкриває вибір у новій вкладці",
-  "version": "1.0",
+  "version": "1.1",
   "manifest_version": 3,
 
   "permissions": [
     "identity",
-    "downloads",
-    "storage"
+    "downloads"
   ],
   "host_permissions": [
     "<all_urls>"
