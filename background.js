@@ -1,60 +1,44 @@
 // background.js
 
-// Запам’ятовує час старту розширення
+// час старту розширення
 const extensionLoadedAt = Date.now();
-
+// інформація про завантаження
 let pendingDownload = null;
-let skipNextDownload = false;  // прапорець
 
-chrome.downloads.onCreated.addListener((downloadItem) => {
-  // Якщо ми самі ініціювали завантаження (skipNextDownload == true), не скасовуємо.
 
-  // Ігноруємо старі завантаження (до старту розширення)
-  const itemStart = new Date(downloadItem.startTime).getTime();
-  if (itemStart < extensionLoadedAt) {
-    // console.log('⏩ Пропускаємо старе завантаження:', downloadItem.startTime);
-    return;
-  }
-
-  // Ігноруємо завантаження, створені іншими розширеннями
-  if (downloadItem.byExtensionId) {
-    // console.log('⏩ Пропускаємо завантаження від розширення:', downloadItem.byExtensionId);
-    return;
-  }
-
-  if (skipNextDownload) {
-    skipNextDownload = false; // скидаємо прапорець після першої обробки
-    // console.log("Завантаження створене власним розширенням => не скасовуємо");
-    return;
-  }
-
-  // Інакше це завантаження ззовні – скасовуємо та відкриваємо форму вибору.
+// Перехоплює подію перед відображенням діалогу «Зберегти як»
+chrome.downloads.onDeterminingFilename.addListener(downloadItem => {
+  const start = new Date(downloadItem.startTime).getTime();
+    // Ігнорує старі завантаження (до старту розширення)
+  // if (start < extensionLoadedAt) return;
+    // Ігнорує завантаження від будь-яких розширень
+  if (downloadItem.byExtensionId) return;
   chrome.downloads.cancel(downloadItem.id, () => {
-    // console.log("Автоматичне завантаження скасовано.");
-  });
-
-  // Зберігаємо дані про файл, щоби згодом дати змогу юзеру вирішити,
-  // куди його зберігати.
-  pendingDownload = downloadItem;
-
-  // Відкриваємо нашу сторінку вибору у новій вкладці.
-  chrome.tabs.create({
-    url: chrome.runtime.getURL("choose.html")
+    // if (chrome.runtime.lastError) {
+    //   console.warn('cancel error:', chrome.runtime.lastError.message);
+    // } else {
+    //   console.log('✋ Завантаження скасовано у onDeterminingFilename');
+    // }
+    // Зберігає для подальшої обробки об'єкт з інформацією про завантаження
+    pendingDownload = downloadItem;
+    // Відкриває вікно вибору (choose.html)
+    chrome.tabs.create({url: chrome.runtime.getURL('choose.html')});
   });
 });
 
-// Слухаємо повідомлення від choose.html
+
+// Слухає повідомлення від choose.html
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (!pendingDownload) {
-    // Якщо чомусь немає збереженого файлу, повідомляємо про помилку
+    // Якщо нема збереженого файлу - помилка
     sendResponse({ status: "error", message: "Немає файлу для завантаження." });
     return true;
   }
 
   if (request.action === "downloadToPC") {
     // Користувач вирішив завантажити на ПК
-    // Викликаємо метод chrome.downloads.download() вручну,
-    // щоб тепер справді викликати діалог "Save As"
+    // Викликає метод chrome.downloads.download() вручну,
+    // щоб викликати діалог "Save As"
     const fileUrl = pendingDownload.finalUrl || pendingDownload.url;
 
     skipNextDownload = true;
@@ -98,8 +82,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse({ status: "uploaded", details: driveResponse });
       })
       .catch(err => {
-        console.error("Помилка при завантаженні на Drive:", err);
-        sendResponse({ status: "error", message: err.toString() });
+        // якщо це Error — беремо err.message, якщо об’єкт із полем message — err.message, інакше — JSON.stringify
+        let msg;
+        if (err instanceof Error) {
+          msg = err.message;
+        } else if (err && typeof err === "object" && err.message) {
+          msg = err.message;
+        } else {
+          msg = JSON.stringify(err);
+        }
+        sendResponse({ status: "error", message: msg });
       });
     return true; // лишаємо канал open
   }
